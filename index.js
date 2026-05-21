@@ -58,7 +58,50 @@ async function run() {
     const parcelCollection = db.collection("parcels");
     const paymentCollection = db.collection("payments");
     const userCollection = db.collection("users");
+    const ridersCollection =db.collection("riders");
 
+    // Rider Related API
+    app.post("/riders",async(req,res)=>{
+      const rider = req.body;
+      rider.createdAt = new Date();
+      rider.status= "pending"
+      const  result = await ridersCollection.insertOne(rider);
+      res.send(result)
+    })
+
+    // Getting Pending Status Riders
+    app.get("/riders",async(req,res)=>{
+      const query = {}
+      if(req.query.status){
+        query.status = req.query.status
+      }
+      const cursor = ridersCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result)
+    })
+
+    app.patch("/riders/:id",verifyToken,async(req,res)=>{
+      const status = req.body.status;
+      const id = req.params.id;
+      const query= {_id: new ObjectId(id)}
+      const updateDoc = {
+        $set: {
+          status: status,
+        },
+      }
+      const result = await ridersCollection.updateOne(query,updateDoc)
+      if(status === "approved"){
+        const email = req.body.email;
+        const userQuery = {  email };
+        const updateUser={
+          $set: {
+            role:"rider"
+          }
+        }
+        const userResult = await userCollection.updateOne(userQuery,updateUser)
+      }
+      res.send(result)
+    })
 
     // user related API
     app.post("/users",async(req,res)=>{
@@ -210,37 +253,6 @@ async function run() {
       res.send(result);
     });
 
-    // old payment api
-    // app.post("/create-checkout-session", async (req, res) => {
-    //   const paymentInfo = req.body;
-    //   const amount = parseInt(paymentInfo.cost) * 100;
-    //   const session = await stripe.checkout.sessions.create({
-    //     // ui_mode: "elements",
-    //     line_items: [
-    //       {
-    //         price_data: {
-    //           currency: "USD",
-    //           unit_amount: amount,
-    //           product_data: {
-    //             name: paymentInfo.parcelName,
-    //           },
-    //         },
-    //         quantity: 1,
-    //       },
-    //     ],
-    //     customer_email: paymentInfo.senderEmail,
-    //     metadata: {
-    //       parcelId: paymentInfo.parcelId,
-    //     },
-    //     mode: "payment",
-    //     // return_url: `${process.env.SITE_DOMAIN}/complete?session_id={CHECKOUT_SESSION_ID}`,
-    //     success_url: `${process.env.SITE_DOMAIN}/dashboard/payment-success`,
-    //     cancel_url: `${process.env.SITE_DOMAIN}/dashboard/payment-cancelled`,
-    //     // cancel_url: `${process.env.SITE_DOMAIN}/complete?session_id={CHECKOUT_SESSION_ID}`,
-    //   });
-    //   console.log(session);
-    //   res.send({ url: session.url });
-    // });
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!",
