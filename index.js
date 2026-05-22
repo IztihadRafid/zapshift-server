@@ -32,15 +32,14 @@ const verifyToken = async (req, res, next) => {
     return res.status(401).send({ message: "Unauthorized access!" });
   }
   try {
-    const idToken = token.split(" ")[1]
-    const decoded = await admin.auth().verifyIdToken(idToken)
-    console.log(decoded)
-    req.decoded_email = decoded.email
+    const idToken = token.split(" ")[1];
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    console.log(decoded);
+    req.decoded_email = decoded.email;
     next();
   } catch (error) {
     return res.status(401).send({ message: "Unauthorized access!" });
   }
-  
 };
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.1rbhjut.mongodb.net/?appName=Cluster0`;
 
@@ -58,67 +57,88 @@ async function run() {
     const parcelCollection = db.collection("parcels");
     const paymentCollection = db.collection("payments");
     const userCollection = db.collection("users");
-    const ridersCollection =db.collection("riders");
+    const ridersCollection = db.collection("riders");
 
     // Rider Related API
-    app.post("/riders",async(req,res)=>{
+    app.post("/riders", async (req, res) => {
       const rider = req.body;
       rider.createdAt = new Date();
-      rider.status= "pending"
-      const  result = await ridersCollection.insertOne(rider);
-      res.send(result)
-    })
+      rider.status = "pending";
+      const result = await ridersCollection.insertOne(rider);
+      res.send(result);
+    });
 
     // Getting Pending Status Riders
-    app.get("/riders",async(req,res)=>{
-      const query = {}
-      if(req.query.status){
-        query.status = req.query.status
+    app.get("/riders", async (req, res) => {
+      const query = {};
+      if (req.query.status) {
+        query.status = req.query.status;
       }
       const cursor = ridersCollection.find(query);
       const result = await cursor.toArray();
-      res.send(result)
-    })
+      res.send(result);
+    });
 
-    app.patch("/riders/:id",verifyToken,async(req,res)=>{
+    app.patch("/riders/:id", verifyToken, async (req, res) => {
       const status = req.body.status;
       const id = req.params.id;
-      const query= {_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
           status: status,
         },
-      }
-      const result = await ridersCollection.updateOne(query,updateDoc)
-      if(status === "approved"){
+      };
+      const result = await ridersCollection.updateOne(query, updateDoc);
+      if (status === "approved") {
         const email = req.body.email;
-        const userQuery = {  email };
-        const updateUser={
+        const userQuery = { email };
+        const updateUser = {
           $set: {
-            role:"rider"
-          }
-        }
-        const userResult = await userCollection.updateOne(userQuery,updateUser)
+            role: "rider",
+          },
+        };
+        const userResult = await userCollection.updateOne(
+          userQuery,
+          updateUser,
+        );
       }
-      res.send(result)
-    })
+      res.send(result);
+    });
 
     // user related API
-    app.post("/users",async(req,res)=>{
+    app.post("/users", async (req, res) => {
       const user = req.body;
-      user.role="user"
+      user.role = "user";
       user.createdAt = new Date();
       const email = user.email;
-      const userExists = await userCollection.findOne({  email });
-      if(userExists){
-        return res.send({message:"User already exists"})
+      const userExists = await userCollection.findOne({ email });
+      if (userExists) {
+        return res.send({ message: "User already exists" });
       }
       const result = await userCollection.insertOne(user);
-      res.send(result)
-    })
+      res.send(result);
+    });
 
+    // Getting all users
+    app.get("/users",verifyToken ,async (req, res) => {
+      const cursor = userCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
 
-
+    // update role to make admin
+    app.patch("/users/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const roleInfo= req.body;
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: roleInfo.role,
+        },
+      };
+      const result = await userCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
 
     // parcel API
     app.get("/parcels", async (req, res) => {
@@ -244,11 +264,11 @@ async function run() {
 
       if (email) {
         query.customerEmail = email;
-        if(email !== req.decoded_email){
+        if (email !== req.decoded_email) {
           return res.status(401).send({ message: "Forbidden access!" });
         }
       }
-      const cursor = paymentCollection.find(query).sort({paidAt:-1});
+      const cursor = paymentCollection.find(query).sort({ paidAt: -1 });
       const result = await cursor.toArray();
       res.send(result);
     });
